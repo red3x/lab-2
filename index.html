@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Лаба 2</title>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+        <script type="text/javascript">
+
+            const START_DATE = 'start_date';
+            const END_DATE = 'end_date';
+            const KEYWORD = 'keyword';
+            const CITY = 'city';
+            const NEW_YORK = 'New York';
+            const SAN_FRANCISCO = 'San Francisco';
+            //const WINDOW_LOCATION_HASH = 'window_location_hash';
+
+            function setCookie(cname, cvalue, exdays) {
+                var d = new Date();
+                d.setTime(d.getTime() + (exdays*24*60*60*1000));
+                var expires = "expires=" + d.toUTCString();
+                document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
+            }
+
+            function deleteAllCookies() {
+                var cookies = document.cookie.split(";");
+                for (var i = 0; i < cookies.length; i++) {
+                    var cookie = cookies[i];
+                    var eqPos = cookie.indexOf("=");
+                    var name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+                    document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT";
+                }
+            }
+
+            function deleteCookies() {
+                setCookie('_xsrf=', '', 0);
+                setCookie(CITY, '', 0);
+                setCookie(START_DATE, '', 0);
+                setCookie(END_DATE, '', 0);
+                setCookie(KEYWORD, '', 0);
+            }
+
+            function getCookie(cname) {
+                var name = cname + "=";
+                var decodedCookie = decodeURIComponent(document.cookie);
+                var ca = decodedCookie.split(';');
+                for(var i = 0; i <ca.length; i++) {
+                    var c = ca[i];
+                    while (c.charAt(0) == ' ') {
+                        c = c.substring(1);
+                    }
+                    if (c.indexOf(name) == 0) {
+                        return c.substring(name.length, c.length);
+                    }
+                }
+                return "";
+            }
+
+            $(document).ready(function(){
+                $("#wait").hide();
+                $("#content_space").hide();
+                var today = new Date();
+                var dd = today.getDate();
+                var mm = today.getMonth() + 1; // January is 0!
+                var yyyy = today.getFullYear();
+                if(dd < 10){
+                    dd='0' + dd
+                }
+                if(mm < 10){
+                    mm='0' + mm
+                }
+                today = yyyy + '-' + mm + '-' + dd;
+
+                document.getElementById("date_start_input").setAttribute("min", today);
+                document.getElementById("date_end_input").setAttribute("min", today);
+
+                document.getElementById("date_start_input").valueAsDate = new Date();
+                document.getElementById("date_end_input").valueAsDate = new Date();
+
+                if(window.location.hash.length == 0) {
+
+                    $('#submit_button').prop('disabled', false);
+                    $('#submit_button').click(function () {
+                        $("#wait").show();
+                        $('#submit_button').prop('disabled', true);
+                        var dateStart = document.getElementById("date_start_input").valueAsDate;
+                        var dateEnd = document.getElementById("date_end_input").valueAsDate;
+                        if (dateStart > dateEnd) {
+                            $('#errors_output').val("End date is earlier than start date!");
+                        }
+                        else {
+                            const key = 'urkea3naa9p7pfgtcbq6n9o0se';
+                            const redirect = 'http://localhost:1337/';
+
+                            const auth_request =
+                                'https://secure.meetup.com/oauth2/authorize?client_id=' + key +
+                                '&response_type=token&redirect_uri=' + redirect;
+
+                            var city = $("#city_select option:selected").text();
+                            var keyword = $("#keyword_input").val();
+                            var dateStartStr = dateStart.toString();
+                            var dateEndStr = dateEnd.toString();
+
+                            var saveSessionRequest = "http://localhost:1337/save";
+                            var params = { CITY: city, KEYWORD: keyword, START_DATE: dateStartStr, END_DATE: dateEndStr };
+                            $.post(saveSessionRequest, params, function(data){
+                                /*if(data !== 'ok') {
+                                    //window.alert("OK");
+                                }*/
+                            });
+
+                            window.location.replace(auth_request);
+                        }
+                    });
+                }
+                else{
+                    $('#submit_button').prop('disabled', true);
+                    var window_location_hash = window.location.hash;
+
+                    $.post("http://localhost:1337/set", null, function(data){
+
+                        if (typeof data !== 'undefined' && data !== null) {
+                            var json = JSON.parse(data);
+                            window.alert('json: ' + json);
+                            //$("#city_select option:selected").val(json.city);
+                            $("select#city_select option").each(function() { this.selected = (this.text == json.city); });
+                            $("#keyword_input").val(json.keyword);
+                            document.getElementById("date_start_input").valueAsDate = new Date(json.start_date);
+                            document.getElementById("date_end_input").valueAsDate = new Date(json.end_date);
+                        }
+                    });
+
+                    var params = { WINDOW_LOCATION_HASH: window_location_hash };
+                    $.post("http://localhost:1337", params, function(data){
+                        $("#wait").hide();
+                        $("#content_space").show();
+                        if(data.events.length > 0) {
+                            $("#events_output").html(JSON.stringify(data, undefined, 1));
+                        }
+                        else{
+                            $("#events_output").html("There is no event for these parameters!");
+                        }
+                    });
+                }
+            });
+        </script>
+    </head>
+    <body>
+    <!--<form action="http://127.0.0.1:1337" method="POST">-->
+        <label for="city_select">Город:</label>
+        <select name="city_select" id="city_select">
+            <option value="newyork">New York</option>
+            <option value="sanfrancisco">San Francisco</option>
+        </select>
+        <br><br>
+        <label for="date_start_input">Start date:</label>
+        <input type="date" id="date_start_input" name="date_start_input" max="2021-12-31">
+        <br><br>
+        <label for="date_end_input">End date:</label>
+        <input type="date" id="date_end_input" name="date_end_input" max="2021-12-31">
+        <br><br>
+        <input type="text" id="keyword_input" name="keyword_input" placeholder="keyword">
+        <br><br>
+        <input type='button' id='submit_button' value='Submit' />
+        <br><br>
+        <output id="errors_output" name="errors_output" ></output>
+        <div id="content_space">
+            <h2>Events:</h2>
+            <div id="wait">Please, wait!</div>
+            <pre id="events_output"></pre>
+        </div>
+    <!--</form>-->
+    </body>
+</html>
